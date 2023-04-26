@@ -1,7 +1,7 @@
 import os
 from glob import glob
 from skimage.io import imread
-from skimage.io import imsave
+from numpy import save
 
 BASE_DIR = os.getcwd()
 
@@ -117,11 +117,10 @@ def process_gs_rainfall_daily(force=False, n_images=-1, log=100) -> str:
         if (log != -1) and (file_n % log == 0):
             print(f'Processing file number {file_n} ({file.split("/")[-1]})')
 
-        # Read, scale pixels to [0.0, 1.0], crop, and save
-        image_arr = imread(file) / 255.
-        image_arr = image_arr[north_lim : south_lim, :east_lim].astype('uint8')
-        processed_file = processed_dir + '/' \
-                            + file.split('/')[-1][:-4] + '_processed.PNG'
-        imsave(processed_file, image_arr, check_contrast=False)
+        # Read, scale pixels to [0.0, 1.0], crop, and save as .npy
+        image_arr = imread(file).astype('float32') / 255.
+        image_arr = image_arr[north_lim : south_lim, :east_lim]
+        processed_file = processed_dir + '/' + file.split('/')[-1][:-4] + '.npy'
+        save(processed_file, image_arr)
 
     return processed_dir

@@ -1,7 +1,7 @@
 import os
 from glob import glob
-from matplotlib.pyplot import imread
-from matplotlib.pyplot import imsave
+from skimage.io import imread
+from skimage.io import imsave
 
 BASE_DIR = os.getcwd()
 
@@ -118,10 +118,10 @@ def process_gs_rainfall_daily(force=False, n_images=-1, log=100) -> str:
             print(f'Processing file number {file_n} ({file.split("/")[-1]})')
 
         # Read, scale pixels to [0.0, 1.0], crop, and save
-        image_arr = imread(file)
-        image_arr = image_arr[north_lim : south_lim, :east_lim]
+        image_arr = imread(file) / 255.
+        image_arr = image_arr[north_lim : south_lim, :east_lim].astype('uint8')
         processed_file = processed_dir + '/' \
                             + file.split('/')[-1][:-4] + '_processed.PNG'
-        imsave(processed_file, image_arr, vmin=0.0, vmax=1.0, cmap='gray')
+        imsave(processed_file, image_arr, check_contrast=False)
 
     return processed_dir

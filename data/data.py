@@ -2,6 +2,7 @@ import os
 from glob import glob
 from skimage.io import imread
 from numpy import save
+from typing import Iterable
 
 BASE_DIR = os.getcwd()
 
@@ -9,11 +10,28 @@ DATASETS = {
     'gs_rainfall_daily': 'gs/GPM_3IMERGDL'
     }
 
+def get_files(dir_: str, pattern: str, n: int = None) -> list[str]:
+    """
+    Shortcut for sorted(glob(...))[:n]
+
+    Parameters
+    ----------
+    dir_: directory from which to get files
+    pattern: file pattern for which to look
+    n: first n files are returned
+
+    Returns
+    -------
+    list of file paths
+    """
+
+    return sorted(glob(dir_ + '/' + pattern))[:n]
+
 def download(
-    dataset=DATASETS['gs_rainfall_daily'],
-    years=tuple(range(2015, 2021)),
-    ext='.PNG',
-    force=False,
+    dataset: str = DATASETS['gs_rainfall_daily'],
+    years: Iterable[int] = tuple(range(2015, 2021)),
+    ext: str ='.PNG',
+    force: bool = False,
     verbose='q',
     ) -> str:
     """
@@ -21,21 +39,15 @@ def download(
 
     Parameters
     ----------
-    dataset : string
-        dataset to download in <type>/<name> format (e.g. rgb or geotiff)
-    years : iterable
-        years in dataset to download
-    ext : string
-        file extension (e.g. .JPEG or .TIFF)
-    force : bool
-        force downloading if dataset already exists
-    verbose : str
-        verbosity of wget: q (quiet), nv (not verbose), or v (verbose)
+    dataset: dataset to download in <type>/<name> format (e.g. rgb or geotiff)
+    years: years in dataset to download
+    ext: file extension (e.g. .JPEG or .TIFF)
+    force: force downloading if dataset already exists
+    verbose: verbosity of wget: q (quiet), nv (not verbose), or v (verbose)
 
     Returns
     -------
-    string
-         path to saved data
+    path to saved data
     """
 
     url = 'https://neo.gsfc.nasa.gov/archive/' + dataset
@@ -59,36 +71,36 @@ def download(
             template.format(
                 accept='*.act',
                 url='https://neo.gsfc.nasa.gov/palettes/trmm_rainfall.act'
-                )
             )
+        )
 
     # Download PNGs
     os.system(
         template.format(
             accept=','.join(map(lambda y: f'*{y}*{ext}', years)),
             url=url
-            )
         )
+    )
 
     return save_dir
 
-def process_gs_rainfall_daily(force=False, n_images=-1, log=100) -> str:
+def process_gs_rainfall_daily(
+    force: bool = False,
+    n_images: int = None,
+    log : int = 100
+    ) -> str:
     """
     Perform standard processing for gs_rainfall_daily
 
     Parameters
     ----------
-    force : bool
-        force processing if processed data already exists
-    n_images : int
-        number of images to process (used for testing), -1 indicates all
-    log : int
-        print every log images, -1 means no logging
+    force: force processing if processed data already exists
+    n_images: number of images to process (used for testing), None indicates all
+    log: print every log images, -1 means no logging
 
     Returns
     -------
-    string
-        path to processed data
+    path to processed data
     """
 
     raw_dir = f"{BASE_DIR}/data/datasets/{DATASETS['gs_rainfall_daily']}/raw"
@@ -102,9 +114,7 @@ def process_gs_rainfall_daily(force=False, n_images=-1, log=100) -> str:
     os.makedirs(processed_dir, exist_ok=True)
 
     # Get file paths
-    raw_files = sorted(glob(raw_dir + '/*.PNG'))
-    if n_images != -1:
-        raw_files = raw_files[:n_images]
+    raw_files = get_files(raw_dir, '/*.PNG', n_images)
 
     # Cropping limits
     image_size_raw = imread(raw_files[0]).shape

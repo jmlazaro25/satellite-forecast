@@ -52,7 +52,7 @@ def download(
     """
 
     url = 'https://neo.gsfc.nasa.gov/archive/' + dataset
-    save_dir = f'{BASE_DIR}/data/datasets/{dataset}/raw'
+    save_dir = f'{BASE_DIR}/datasets/{dataset}/raw'
 
     # \ in triple quotes for os.system
     template = """wget --no-directories --no-host-directories --no-parent \

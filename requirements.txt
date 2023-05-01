@@ -2,5 +2,4 @@ numpy==1.23.5
 matplotlib==3.7.1
 scikit-image==0.20.0
 notebook==6.5.3
---find-links https://download.pytorch.org/whl/cpu
-torch==2.0.0+cpu
+torch==2.0.0+cpu -f https://download.pytorch.org/whl/cpu

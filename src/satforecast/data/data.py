@@ -3,6 +3,7 @@ from glob import glob
 from skimage.io import imread
 from numpy import save
 from typing import Iterable
+from typing import List
 
 BASE_DIR = os.getcwd()
 
@@ -10,7 +11,7 @@ DATASETS = {
     'gs_rainfall_daily': 'gs/GPM_3IMERGDL'
     }
 
-def get_files(dir_: str, pattern: str, n: int = None) -> list[str]:
+def get_files(dir_: str, pattern: str, n: int = None) -> List[str]:
     """
     Shortcut for sorted(glob(...))[:n]
 

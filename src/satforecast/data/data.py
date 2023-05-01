@@ -103,8 +103,8 @@ def process_gs_rainfall_daily(
     path to processed data
     """
 
-    raw_dir = f"{BASE_DIR}/data/datasets/{DATASETS['gs_rainfall_daily']}/raw"
-    processed_dir = f"{BASE_DIR}/data/datasets/{DATASETS['gs_rainfall_daily']}/processed"
+    raw_dir = f"{BASE_DIR}/datasets/{DATASETS['gs_rainfall_daily']}/raw"
+    processed_dir = f"{BASE_DIR}/datasets/{DATASETS['gs_rainfall_daily']}/processed"
 
     # Skip if processed data exists and not reprocessing
     if os.path.exists(processed_dir) and (not force):

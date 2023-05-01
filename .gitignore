@@ -1,2 +1,4 @@
-data/datasets
-data/*.TIFF
+datasets
+
+# Install
+src/satellite_forecast.egg-info

@@ -26,20 +26,18 @@ def rolling_batch(
     Returns
     -------
     torch.tensor of shape (batch_size, seq_len, channels, *image_size)
-    torch.tensor of shape (batch_size, seq_len, *image_size)
+    torch.tensor of shape (batch_size, channels, *image_size)
     """
 
     # Determine images used for batch
     if images_arr is not None:
         batch_images = images_arr
     elif files is not None:
-        batch_images = np.array([np.laod(files[i]) for i in range(start, stop)])
-
+        batch_images = np.array([np.load(files[i]) for i in range(start, stop)])
 
     # Explicit single gs channel
     image_size = batch_images.shape[-2:]
     batch_images = batch_images.reshape(len(batch_images), 1, *image_size)
-
 
     # Organize X into (batch_size, seq_len, channels=1, *image_size)
     # And y into (batch_size, channels=1, *image_size)
@@ -54,3 +52,6 @@ def rolling_batch(
                     ])
 
     return torch.from_numpy(X), torch.from_numpy(y)
+
+def batch_seq_in_channels(
+    pass

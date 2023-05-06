@@ -1,0 +1,5 @@
+numpy==1.23.5
+matplotlib==3.7.1
+scikit-image==0.20.0
+notebook==6.5.3
+torch==2.0.0 -f https://download.pytorch.org/whl/cpu

@@ -2,6 +2,12 @@ import numpy as np
 import torch
 from typing import Iterable
 
+
+class GridSearch(
+    estimator,
+    ):
+    pass
+
 def rolling_batch(
     files: Iterable[str] = None,
     images_arr: np.ndarray = None,
@@ -53,5 +59,5 @@ def rolling_batch(
 
     return torch.from_numpy(X), torch.from_numpy(y)
 
-def batch_seq_in_channels(
+def batch_seq_in_channels():
     pass

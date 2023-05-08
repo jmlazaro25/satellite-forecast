@@ -1,6 +1,7 @@
 import os
 from glob import glob
 from skimage.io import imread
+from skimage.transform import rescale
 from numpy import save
 from typing import Iterable
 from typing import List
@@ -26,14 +27,14 @@ def get_files(dir_: str, pattern: str, n: int = None) -> List[str]:
     list of file paths
     """
 
-    return sorted(glob(dir_ + '/' + pattern))[:n]
+    return sorted(glob(os.path.join(dir_, pattern)))[:n]
 
 def download(
-    dataset: str = DATASETS['gs_rainfall_daily'],
-    years: Iterable[int] = tuple(range(2015, 2021)),
-    ext: str ='.PNG',
-    force: bool = False,
-    verbose='q',
+        dataset: str = DATASETS['gs_rainfall_daily'],
+        years: Iterable[int] = tuple(range(2015, 2021)),
+        ext: str ='.PNG',
+        force: bool = False,
+        verbose='q',
     ) -> str:
     """
     Standardize downloading data
@@ -52,7 +53,7 @@ def download(
     """
 
     url = 'https://neo.gsfc.nasa.gov/archive/' + dataset
-    save_dir = f'{BASE_DIR}/datasets/{dataset}/raw'
+    save_dir = os.path.join(f'{BASE_DIR}', 'datasets', f'{dataset}','raw')
 
     # \ in triple quotes for os.system
     template = """wget --no-directories --no-host-directories --no-parent \
@@ -75,7 +76,7 @@ def download(
             )
         )
 
-    # Download PNGs
+    # Download images
     os.system(
         template.format(
             accept=','.join(map(lambda y: f'*{y}*{ext}', years)),
@@ -88,7 +89,8 @@ def download(
 def process_gs_rainfall_daily(
     force: bool = False,
     n_images: int = None,
-    log : int = 100
+    log : int = 100,
+    scale : float = 1.0,
     ) -> str:
     """
     Perform standard processing for gs_rainfall_daily
@@ -104,8 +106,14 @@ def process_gs_rainfall_daily(
     path to processed data
     """
 
-    raw_dir = f"{BASE_DIR}/datasets/{DATASETS['gs_rainfall_daily']}/raw"
-    processed_dir = f"{BASE_DIR}/datasets/{DATASETS['gs_rainfall_daily']}/processed"
+    gs_rainfall_daily_dir = os.path.join(
+        f'{BASE_DIR}', 'datasets', f'{DATASETS["gs_rainfall_daily"]}'
+    )
+    raw_dir = os.path.join(gs_rainfall_daily_dir, 'raw')
+    processed_dir = os.path.join(
+        gs_rainfall_daily_dir,
+        f'/processed_scale-{scale}'
+    )
 
     # Skip if processed data exists and not reprocessing
     if os.path.exists(processed_dir) and (not force):
@@ -115,7 +123,7 @@ def process_gs_rainfall_daily(
     os.makedirs(processed_dir, exist_ok=True)
 
     # Get file paths
-    raw_files = get_files(raw_dir, '/*.PNG', n_images)
+    raw_files = get_files(raw_dir, '*.PNG', n_images)
 
     # Cropping limits
     image_size_raw = imread(raw_files[0]).shape
@@ -126,12 +134,19 @@ def process_gs_rainfall_daily(
     for file_n, file in enumerate(raw_files):
 
         if (log != -1) and (file_n % log == 0):
-            print(f'Processing file number {file_n} ({file.split("/")[-1]})')
+            print(f'Processing file number {file_n} ({os.path.split(file)[-1]})')
 
-        # Read, scale pixels to [0.0, 1.0], crop, and save as .npy
+        # Read, scale pixels to [0.0, 1.0], crop, and scale image
         image_arr = imread(file).astype('float32') / 255.
         image_arr = image_arr[north_lim : south_lim, :east_lim]
-        processed_file = processed_dir + '/' + file.split('/')[-1][:-4] + '.npy'
+        if scale != 1.0:
+            image_arr = rescale(image_arr, scale, preserve_range=True)
+
+        # Save as .npy
+        processed_file = os.path.join(
+            processed_dir,
+            os.path.splitext(os.path.split(file)[-1])[0] + '.npy'
+        )
         save(processed_file, image_arr)
 
     return processed_dir

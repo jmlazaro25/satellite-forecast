@@ -4,15 +4,15 @@ from skimage.io import imread
 from skimage.transform import rescale
 from numpy import save
 from typing import Iterable
-from typing import List
 
 BASE_DIR = os.getcwd()
+MODEL_DIR = os.path.join(BASE_DIR, 'models')
 
 DATASETS = {
     'gs_rainfall_daily': 'gs/GPM_3IMERGDL'
     }
 
-def get_files(dir_: str, pattern: str, n: int = None) -> List[str]:
+def get_files(dir_: str, pattern: str, n: int = None) -> list[str]:
     """
     Shortcut for sorted(glob(...))[:n]
 
@@ -112,7 +112,7 @@ def process_gs_rainfall_daily(
     raw_dir = os.path.join(gs_rainfall_daily_dir, 'raw')
     processed_dir = os.path.join(
         gs_rainfall_daily_dir,
-        f'/processed_scale-{scale}'
+        f'processed_scale-{scale}'
     )
 
     # Skip if processed data exists and not reprocessing

@@ -1,15 +1,13 @@
 import os
 import torch
-from torch import nn
 from time import time
 from math import ceil
 
-from typing import Callable
 from typing import Any
 from typing import Type
 from typing import Union
 
-from satforecast.modeling.model_selection import rolling_batch
+from satforecast.modeling.data_selection import rolling_batch
 from satforecast.data.data import MODEL_DIR
 
 def tsize(t) -> float:
@@ -23,23 +21,23 @@ def print_sizes(**args):
     )
 
 def train(
-    model: Type[nn.Module],
-    model_name: str,
-    criterion: Type[nn.Module],
-    optimizer: Type[torch.optim.Optimizer],
-    files_list: list[str],
-    train_frac: float,
-    val_frac: float,
-    seq_len: int,
-    batch_size: int,
-    max_epochs: int,
-    val_level: str = 'epoch',
-    early_stopping: bool = True,
-    min_improv: float = 0,
-    max_iter_improv: int = 2,
-    log_level: int = 2,
-    predict: Callable[[Any], torch.Tensor] = None,
-    predict_kwargs: dict[str, Any] = {},
+        model: Type[torch.nn.Module],
+        model_name: str,
+        criterion: Type[torch.nn.Module],
+        optimizer: Type[torch.optim.Optimizer],
+        files_list: list[str],
+        train_frac: float,
+        val_frac: float,
+        seq_len: int,
+        batch_size: int,
+        max_epochs: int,
+        val_level: str = 'epoch',
+        early_stopping: bool = True,
+        min_improv: float = 0,
+        max_iter_improv: int = 2,
+        scheduler: Type[torch.optim.lr_scheduler] = None
+        scheduler_level: str = 'epoch'
+        log_level: int = 2,
     ) -> Union[tuple[list[float], list[float]], list[float]]:
     """
     Train and save a local image-to-image model
@@ -63,6 +61,8 @@ def train(
     early_stopping: whether to use early stopping
     min_improv: amount by which loss must decrease, else early stopping
     max_iter_improv: number of  allowed before requiring min_improv
+    scheduler: learning rate scheduler
+    scheduler_level: whether to step at 'epoch' or 'batch' level
     log_level: verbosity - how much to print
 
     Returns
@@ -143,6 +143,8 @@ def train(
             optimizer.zero_grad()
             train_loss.backward()
             optimizer.step()
+            if scheduler and scheduler_level == 'batch':
+                scheduler.step()
             update_time = round(time() - update_start, 1)
             if val_frac == 0 and log_level > 0:
                 print(
@@ -184,6 +186,10 @@ def train(
                     break
 
                 model.train()
+
+        # End for batch in epoch loop
+        if scheduler and scheduler_level == 'epoch':
+            scheduler.step()
 
         # Don't continue to next epoch if batch-level early stopping triggered
         if break_from_batch:

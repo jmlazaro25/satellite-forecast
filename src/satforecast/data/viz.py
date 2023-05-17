@@ -6,7 +6,7 @@ from satforecast.data import data
 
 IMAGE_DIR = os.path.join(data.BASE_DIR, 'images')
 
-def get_border_map(force=False):
+def get_border_map(force: int = False) -> str:
 
     """
     Extract borders for plotting on top of weather predictions
@@ -43,8 +43,8 @@ def get_border_map(force=False):
     coast_or_inter = canny(borders[:,:,0], sigma=1)
 
     # Set interborder, intraborder, and other rgba
-    borders[coast_or_inter] = (0, 0, 0, 127) # Black, alpha = 50%
-    borders[intra_mask] = (0, 0, 0, 63) # Black, alpha = 25%
+    borders[coast_or_inter] = (255, 0, 0, 191) # Red, alpha = 75%
+    borders[intra_mask] = (255, 0, 255, 127) # Magenta, alpha = 50%
     borders[~intra_mask & ~coast_or_inter, 3] = 0
 
     # Raw weather image for size reference

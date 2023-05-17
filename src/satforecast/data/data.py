@@ -87,10 +87,10 @@ def download(
     return save_dir
 
 def process_gs_rainfall_daily(
-    force: bool = False,
-    n_images: int = None,
-    log : int = 100,
-    scale : float = 1.0,
+        force: bool = False,
+        n_images: int = None,
+        log : int = 100,
+        scale : float = 1.0,
     ) -> str:
     """
     Perform standard processing for gs_rainfall_daily

@@ -2,8 +2,7 @@ import numpy as np
 import torch
 import pytest
 
-from satforecast.modeling.model_selection import rolling_batch
-#from satforecast.modeling.model_selection import batch_seq_in_channels
+from satforecast.modeling.data_selection import rolling_batch
 
 
 class TestRollingBatch():

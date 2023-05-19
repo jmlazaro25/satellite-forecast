@@ -1,6 +1,7 @@
 import os
 import torch
 from time import time
+from random import sample
 from math import ceil
 
 from typing import Any
@@ -35,9 +36,11 @@ def train(
         early_stopping: bool = True,
         min_improv: float = 0,
         max_iter_improv: int = 2,
-        scheduler: Type[torch.optim.lr_scheduler] = None
-        scheduler_level: str = 'epoch'
+        scheduler: Type[torch.optim.lr_scheduler] = None,
+        scheduler_level: str = 'epoch',
+        shuffle: bool = True,
         log_level: int = 2,
+        save_model: bool = True
     ) -> Union[tuple[list[float], list[float]], list[float]]:
     """
     Train and save a local image-to-image model
@@ -63,7 +66,9 @@ def train(
     max_iter_improv: number of  allowed before requiring min_improv
     scheduler: learning rate scheduler
     scheduler_level: whether to step at 'epoch' or 'batch' level
+    shuffle: whether to shuffle batches & sequences/windows in batches
     log_level: verbosity - how much to print
+    save_model: whether to save the trained model
 
     Returns
     -------
@@ -111,23 +116,30 @@ def train(
     break_from_batch = False
     for epoch_n in range(max_epochs):
 
-        epoch_start = time()
-        for batch_n in range(int(n_batches)):
+        # Enhancement TODO: Use smaller final batch if needed
+        # Use range(ceil(n_batches))
+        # if batch_n == ceil(n_batches):
+        #    batch_size = train_n - int(n_batches) * images_per_batch - seq_len
+        #    print(batch_size) # needs to be passes (and used) in rolling_batch
 
-            # Enhancement TODO: Use smaller final batch if needed
-            # Use range(ceil(n_batches))
-            # if batch_n == ceil(n_batches):
-            #    batch_size = train_n - int(n_batches) * images_per_batch - seq_len
-            #    print(batch_size) # needs to be passes (and used) in rolling_batch
+        batch_inds = [
+            (batch_n * images_per_batch, (batch_n + 1) * images_per_batch)
+            for batch_n in range(int(n_batches))
+        ]
+        if shuffle: # Shuffle batches - windows shuffled in rolling_batch
+            batch_inds = sample(batch_inds, len(batch_inds))
+        batch_inds = tuple(batch_inds)
+
+        epoch_start = time()
+        for batch_n, (start_batch, stop_batch) in enumerate(batch_inds):
 
             # Make training batch
-            start_batch_ind = batch_n * images_per_batch
-            stop_batch_ind = (batch_n + 1) * images_per_batch
             X_train, y_train = rolling_batch(
                                                 files = files_list,
-                                                start = start_batch_ind,
-                                                stop = stop_batch_ind,
-                                                seq_len = seq_len
+                                                start = start_batch,
+                                                stop = stop_batch,
+                                                seq_len = seq_len,
+                                                shuffle = shuffle
             )
 
             # Predictions and loss on training batch
@@ -228,14 +240,8 @@ def train(
             model.train()
 
     # Save model
-    torch.save(
-        {
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'criterion_state_dict': criterion.state_dict()
-        },
-        model_path
-        )
+    if save_model:
+        torch.save({'model_state_dict': model.state_dict()}, model_path)
 
     if val_frac != 0:
         return train_losses, val_losses

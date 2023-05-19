@@ -95,7 +95,7 @@ class GridSearchNCV():
         def params_str(params):
             out = ''
             for k, v in params.items():
-                if k == 'files_list'
+                if k == 'files_list':
                     k = 'n_files' # Save len(files_list) rather than whole list
                     v = len(files_list)
                 if k != 'log_level':

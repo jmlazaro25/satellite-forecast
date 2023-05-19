@@ -1,14 +1,16 @@
 import numpy as np
-import torch
-from typing import Iterable
+from torch import from_numpy
+from random import sample
 
+from typing import Iterable
 
 def rolling_batch(
     files: Iterable[str] = None,
     images_arr: np.ndarray = None,
     start: int = None,
     stop: int = None,
-    seq_len: int = None
+    seq_len: int = None,
+    shuffle: bool = True
     ):
     """
     Make feature and label tensors.
@@ -43,13 +45,16 @@ def rolling_batch(
     # Organize X into (batch_size, seq_len, channels=1, *image_size)
     # And y into (batch_size, channels=1, *image_size)
     batch_size = stop - start - seq_len
+    batch_order = range(batch_size)
+    if shuffle:
+        batch_order = sample(batch_order, len(batch_order))
     X = np.array([
                     batch_images[seq_n : seq_n + seq_len]
-                    for seq_n in range(batch_size)
+                    for seq_n in batch_order
                     ])
     y = np.array([
                     batch_images[seq_n + seq_len]
-                    for seq_n in range(batch_size)
+                    for seq_n in batch_order
                     ])
 
-    return torch.from_numpy(X), torch.from_numpy(y)
+    return from_numpy(X), from_numpy(y)

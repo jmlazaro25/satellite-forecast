@@ -46,7 +46,8 @@ class TestRollingBatch():
                                 images_arr=in_arr,
                                 start=0,
                                 stop=len(in_arr),
-                                seq_len=2
+                                seq_len=2,
+                                shuffle=False
                                 )
 
         template = 'expected {} = {}\ngot\n{}'

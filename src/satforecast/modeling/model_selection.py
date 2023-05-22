@@ -132,6 +132,7 @@ class GridSearchNCV():
 
             # One name per config - only last nest model is saved
             config_name = self.name_base + f'__config_{config_n}'
+            self.results[config_name] = {}
             config_dict = {
                 'model_params': model_param,
                 'criterion': self.criterion,
@@ -143,7 +144,7 @@ class GridSearchNCV():
                 'train_params': train_param,
                 'files_n': len(self.files_list)
             }
-            # Types not json serrializable so change to repr in config_dict
+            # Types not json serializable so change to repr in config_dict
             for class_ in ('criterion', 'optimizer', 'scheduler'):
                 config_dict[class_] = repr(config_dict[class_])
 
@@ -170,7 +171,6 @@ class GridSearchNCV():
                     }
                     continue
 
-            self.results[config_name] = {}
             original_config_train_frac = train_param['train_frac']
 
             for nest_n in range(1, self.nests_per_config + 1):

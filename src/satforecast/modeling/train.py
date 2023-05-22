@@ -49,10 +49,10 @@ def train(
     Parameters
     ----------
     model: pytorch model
-    criterion: loss function
-    optimizer: optimization algorithm
     model_name: model saved as
                 os.path.join(MODEL_DIR, model_name, '.', minor_version, '.pth')
+    criterion: loss function
+    optimizer: optimization algorithm
     files_list: files containing image data (.npy)
     train_frac: fraction of files to use for training
     val_frac: fraction of files to use for validation
@@ -72,8 +72,8 @@ def train(
 
     Returns
     -------
-        (train_losses, val_losses) if val_frac != 0
-        train_losses if val_frac == 0
+        (model_path, train_losses, val_losses) if val_frac != 0
+        (model_path, train_losses) if val_frac == 0
     """
 
     # Constants
@@ -83,16 +83,23 @@ def train(
     n_batches = train_n / images_per_batch
 
     # Try writing first so we don't get an error after doing all the training
-    minor_version = 0
-    model_path = os.path.join(MODEL_DIR, f'{model_name}.{minor_version}.pth')
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    while os.path.exists(model_path):
-        minor_version += 1
-        model_path = os.path.join(MODEL_DIR, f'{model_name}.{minor_version}.pth')
+    model_path = None # Need model_path to exist for return even if not saving
+    if save_model:
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        minor_version = 0
+        model_path = os.path.join(
+            MODEL_DIR, f'{model_name}.{minor_version}.pth'
+        )
 
-    torch.save(torch.tensor([1,2]), model_path) # No error handling for now
-    if log_level > 1:
-        print(f'Model will be saved to {model_path}')
+        while os.path.exists(model_path):
+            minor_version += 1
+            model_path = os.path.join(
+                MODEL_DIR, f'{model_name}.{minor_version}.pth'
+            )
+
+        torch.save(torch.tensor([1,2]), model_path) # No error handling for now
+        if log_level > 1:
+            print(f'Model will be saved to {model_path}')
 
     # Reused validation sets
     if val_frac != 0:
@@ -244,6 +251,6 @@ def train(
         torch.save({'model_state_dict': model.state_dict()}, model_path)
 
     if val_frac != 0:
-        return train_losses, val_losses
+        return model_path, train_losses, val_losses
     else:
-        return train_losses
+        return model_path, train_losses

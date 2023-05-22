@@ -58,3 +58,20 @@ def rolling_batch(
                     ])
 
     return from_numpy(X), from_numpy(y)
+
+def mean_and_std_of_files(files_list):
+    """
+    Calculate the mean and standard deviation of images
+    For initialization of models using normalization
+    """
+
+    mean_num = np.sum((np.load(file).sum() for file in files_list))
+    total_pixels = np.prod(np.load(files_list[0]).shape) * len(files_list)
+    mean = mean_num / (total_pixels - 1) # -1 for sample ddof
+
+    var_num = np.sum((
+        np.sum((np.load(file) - mean) ** 2) for file in files_list
+    ))
+    std = (var_num / (total_pixels - 1)) ** 0.5
+
+    return mean, std

@@ -1,7 +1,8 @@
 from itertools import product
 from re import sub
 from numpy import mean
-from os.path import join
+from os import path
+from json import dump
 
 from typing import Any
 from typing import Type
@@ -16,11 +17,13 @@ class GridSearchNCV():
     def __init__(
             self,
             model_class: Type[Module],
-            model_name_base: str,
+            name_base: str,
+            files_list: list[str],
             param_grid: Union[dict[str, Any], list[dict[str, Any]]],
             criterion: Type[Module],
             criterion_params: dict[str, Any] = {},
-            nests_per_config: int = 1
+            nests_per_config: int = 1,
+            log_level = 3
         ) -> None:
         """
         Create grid of model and training configurations
@@ -28,23 +31,33 @@ class GridSearchNCV():
         Parameters
         ----------
         model_class: class to test with various parameters (~sklearn estimator)
-        model_name_base: a base to which parameter information is added
-            e.g. crnn -> crnn__seq_len-5.pth
+        name_base: a base for saved file names
+            e.g. crnn_v0 -> crnn_v0__config_n.0.pth, crnn_v0__results.json
+        files_list: files for training an validation - passed to train.train()
         param_grid: parameters over which to search for the best model/training
             For optimizer and scheduler classes, use 'optimizer' and
-            'scheduler' keys respectively. For parameters, use
-            '<model/criterion/optimizer/etc.>__<param>' format for keys
+            'scheduler' keys respectively.
+            For parameters, use '<model/optimizer/scheduler/etc.>__<param>'
+            format for keys
+            For models with normalization, use 'model__do_norm' and instead of
+            providing a file list. The training files_list and train_frac
+            within the nesting loop will assign the model train_list
         criterion: loss/scoring function class - analogous to sklearn scoring
         criterion_params: parameters to initialize criterion
+        nests_per_config: number of nests to do NCV training
+        log_level: verbosity - how much to print
         """
         self.model_class = model_class
-        self.model_name_base = model_name_base
+        self.name_base = name_base
+        self.files_list = files_list
         self.criterion = criterion
         self.criterion_params = criterion_params
+        self.nests_per_config = nests_per_config
+        self.log_level = log_level
 
         # Put dictionary of lists into list of dictionaries form if needed
         if type(param_grid) == dict:
-            args = parm_grid.keys()
+            args = param_grid.keys()
             value_combinations = product(*param_grid.values())
             self.param_grid = [
                 {arg: value for arg, value in zip(args, values)}
@@ -65,8 +78,10 @@ class GridSearchNCV():
             'scheduler_params',
             'train_params'
             )
+
         for grid_name in self.grid_names:
             setattr(self, grid_name, [])
+
         for param_dict in self.param_grid:
             self.optimizers.append(param_dict[optim_str])
             if sched_str in param_dict:
@@ -76,8 +91,12 @@ class GridSearchNCV():
             for grid_name in self.grid_names:
                 getattr(self, grid_name).append(
                     {
-                        k.split(delim)[1]: value for k, v in param_dict.items()
-                        if k.split(delim)[0] == grid_name
+                        k.split(delim)[1]: v for k, v in param_dict.items()
+                        if (
+                            k.split(delim)[0] == grid_name.split('_')[0]
+                            and len(k.split(delim)) == 2
+                            # Optimizer and scheduler classes pass first
+                        )
                     }
                 )
 
@@ -91,66 +110,118 @@ class GridSearchNCV():
 
         self.results = {}
 
-        # Naming helper functions
-        def params_str(params):
-            out = ''
-            for k, v in params.items():
-                if k == 'files_list':
-                    k = 'n_files' # Save len(files_list) rather than whole list
-                    v = len(files_list)
-                if k != 'log_level':
-                    continue
-                out += f'__{k}-{v}'
-            return out
-
-        def obj_str(cat_name, obj):
-            return f'__{cat_name}' + sub(r'[()]', '', repr(obj))
-
         for (
-                model_param,
-                optimizer_, optimizer_param, # _ indicates class not instance
-                scheduler_, scheduler_param,
-                train_param
-            ) in zip(
-                self.model_params,
-                self.optimizers, self.optimizer_params,
-                self.schedulers, self.scheduler_params,
-                self.train_params
-        ):
-
-            # One name per config - only last nest in saved (for now)
-            config_name = (self.model_name_base
-                + params_str(model_param)
-                + obj_str('optim', optimizer_) + params_str(optimizer_param)
-                + obj_str('sched', scheduler_) + params_str(scheduler_param)
-                + params_str(train_param)
+                config_n,
+                (
+                    model_param, # _ indicates class, not instance
+                    optimizer_, optimizer_param,
+                    scheduler_, scheduler_param,
+                    train_param
                 )
+            ) in enumerate(
+                zip(
+                    self.model_params,
+                    self.optimizers, self.optimizer_params,
+                    self.schedulers, self.scheduler_params,
+                    self.train_params
+                )
+            ):
+
+            # One name per config - only last nest model is saved
+            config_name = self.name_base + f'__config_{config_n}'
+            config_dict = {
+                'model_params': model_param,
+                'criterion': self.criterion,
+                'criterion_params': self.criterion_params,
+                'optimizer': optimizer_,
+                'optimizer_params': optimizer_param,
+                'scheduler': scheduler_,
+                'scheduler_params': scheduler_param,
+                'train_params': train_param,
+                'files_n': len(self.files_list)
+            }
+
+            if self.log_level > 0:
+                print(f'Working on config_{config_n}')
+                if self.log_level > 1:
+                    from pprint import pprint
+                    pprint(config_dict)
+
+            # If model has normalizaion, remove 'do_norm', will set train_files
+            train_files = None
+            do_norm_in_model = 'do_norm' in model_param
+            if do_norm_in_model:
+                do_norm = model_param['do_norm']
+                del model_param['do_norm']
+
+            # Set large loss and skip training if combining
+            # do_norm = False and do_rev_norm = True
+            if 'do_rev_norm' in model_param and model_param['do_rev_norm']:
+                if not do_norm:
+                    self.results[config_name][f'nest_{nest_n}'] = {
+                        'train_loss': [999],
+                        'val_loss': [999]
+                    }
+                    continue
 
             self.results[config_name] = {}
+            original_config_train_frac = train_param['train_frac']
 
-            for nest_n in range(1, nests_per_config + 1):
+            for nest_n in range(1, self.nests_per_config + 1):
 
-                train_param['train_frac'] *= nest_n / nests_per_config
+                if self.log_level > 2:
+                    print(f'nest {nest_n}:\n')
 
-                model = self.model_class(**model_param)
+                train_param['train_frac'] = (
+                    nest_n / self.nests_per_config * original_config_train_frac
+                )
+
+                # Determine training files (train_n) as train.train()
+                if do_norm_in_model and do_norm:
+                    train_files = self.files_list[:
+                        int(
+                            train_param['train_frac']
+                            * len(self.files_list)
+                        )
+                    ]
+
+                # Initialize main objects
+                model = self.model_class(**model_param, train_files=train_files)
                 criterion = self.criterion(**self.criterion_params)
                 optimizer = optimizer_(model.parameters(), **optimizer_param)
                 if scheduler_ is not None:
                     scheduler = scheduler_(optimizer, **scheduler_param)
+                else:
+                    scheduler = None
 
-                train_loss, val_loss = train(
-                    model, config_name, criterion, optimizer, **train_param
-                    save_model = (nest_n == nests_per_config)
+                # Train
+                model_path, train_loss, val_loss = train(
+                    model,
+                    config_name,
+                    criterion,
+                    optimizer,
+                    files_list = self.files_list,
+                    **train_param,
+                    scheduler = scheduler,
+                    save_model = (nest_n == self.nests_per_config)
                 )
 
+                # Nest results
                 self.results[config_name][f'nest_{nest_n}'] = {
                     'train_loss': train_loss,
                     'val_loss': val_loss
                 }
 
+            # Config results
             self.results[config_name]['mean_final_val_loss'] = mean([
                 nest['val_loss'][-1] for nest in self.results[config_name]
             ])
+
+            # Save config and config results to accompanying json
+            config_file = path.splitext(model_path)[0] + '.json'
+            config_dict['results'] = self.results[config_name]
+            with open(config_file, 'w') as cf:
+                dump(config_dict, cf)
 
         self._make_best() # Split into own method; call automatically
 
@@ -174,7 +245,9 @@ class GridSearchNCV():
     def load_best(self, minor_version: int = 0):
         """ Load and return the best model """
 
-        model_path = join(MODEL_DIR, f'{self.best_config}.{minor_version}.pth')
+        model_path = path.join(
+            MODEL_DIR, f'{self.best_config}.{minor_version}.pth'
+            )
         checkpoint = torch.load(model_path)
         model = self.model_class(**self.best_model_params)
         model.load_state_dict(checkpoint['model_state_dict'])

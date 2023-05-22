@@ -3,6 +3,7 @@ from re import sub
 from numpy import mean
 from os import path
 from json import dump
+from torch import load
 
 from typing import Any
 from typing import Type
@@ -155,7 +156,6 @@ class GridSearchNCV():
                     pprint(config_dict)
 
             # If model has normalizaion, remove 'do_norm', will set train_files
-            train_files = None
             do_norm_in_model = 'do_norm' in model_param
             if do_norm_in_model:
                 do_norm = model_param['do_norm']
@@ -184,7 +184,7 @@ class GridSearchNCV():
 
                 # Determine training files (train_n) as train.train()
                 if do_norm_in_model and do_norm:
-                    train_files = self.files_list[:
+                    self.model_param['train_files'] = self.files_list[:
                         int(
                             train_param['train_frac']
                             * len(self.files_list)
@@ -192,7 +192,7 @@ class GridSearchNCV():
                     ]
 
                 # Initialize main objects
-                model = self.model_class(**model_param, train_files=train_files)
+                model = self.model_class(**model_param)
                 criterion = self.criterion(**self.criterion_params)
                 optimizer = optimizer_(model.parameters(), **optimizer_param)
                 if scheduler_ is not None:
@@ -240,9 +240,9 @@ class GridSearchNCV():
     def _make_best(self):
         """ Determine the best model and set relevant attributes """
 
-        self.best_config = max(
+        self.best_config = min(
             self.results,
-            key = lambda config: config['mean_final_val_loss']
+            key = lambda config: self.results[config]['mean_final_val_loss']
         )
         self.best_loss = self.results[self.best_config]['mean_final_val_loss']
 
@@ -260,7 +260,7 @@ class GridSearchNCV():
         model_path = path.join(
             MODEL_DIR, f'{self.best_config}.{minor_version}.pth'
             )
-        checkpoint = torch.load(model_path)
+        checkpoint = load(model_path)
         model = self.model_class(**self.best_model_params)
         model.load_state_dict(checkpoint['model_state_dict'])
 

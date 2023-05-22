@@ -108,6 +108,9 @@ class GridSearchNCV():
         parameters, and training and validation scores
         """
 
+        if self.log_level > 0:
+            print(f'Performing NCV on {len(self.param_grid)} configurations')
+
         self.results = {}
 
         for (
@@ -140,6 +143,9 @@ class GridSearchNCV():
                 'train_params': train_param,
                 'files_n': len(self.files_list)
             }
+            # Types not json serrializable so change to repr in config_dict
+            for class_ in ('criterion', 'optimizer', 'scheduler'):
+                config_dict[class_] = repr(config_dict[class_])
 
             if self.log_level > 0:
                 print(f'Working on config_{config_n}')
@@ -170,7 +176,7 @@ class GridSearchNCV():
             for nest_n in range(1, self.nests_per_config + 1):
 
                 if self.log_level > 2:
-                    print(f'nest {nest_n}:\n')
+                    print(f'nest {nest_n}')
 
                 train_param['train_frac'] = (
                     nest_n / self.nests_per_config * original_config_train_frac
@@ -214,8 +220,14 @@ class GridSearchNCV():
 
             # Config results
             self.results[config_name]['mean_final_val_loss'] = mean([
-                nest['val_loss'][-1] for nest in self.results[config_name]
+                nest['val_loss'][-1]
+                for nest in self.results[config_name].values()
             ])
+
+            if self.log_level > 0:
+                print('Mean final validation loss:',
+                    self.results[config_name]['mean_final_val_loss']
+                )
 
             # Save config and config results to accompanying json
             config_file = path.splitext(model_path)[0] + '.json'

@@ -234,7 +234,7 @@ def train(
                 )
 
             # Epoch-level early stopping
-            if early_stopping and len(val_losses) >= max_iter_improv \
+            if early_stopping and len(val_losses) > max_iter_improv \
                     and val_losses[-(max_iter_improv + 1)] - min_improv \
                         <= min(val_losses[-max_iter_improv:]):
                 if log_level > 0:

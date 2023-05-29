@@ -4,6 +4,7 @@ from numpy import mean
 from os import path
 from json import dump
 from torch import load
+from pprint import pprint
 
 from typing import Any
 from typing import Type
@@ -24,7 +25,8 @@ class GridSearchNCV():
             criterion: Type[Module],
             criterion_params: dict[str, Any] = {},
             nests_per_config: int = 1,
-            log_level = 3
+            log_level = 3,
+            save = True
         ) -> None:
         """
         Create grid of model and training configurations
@@ -47,6 +49,7 @@ class GridSearchNCV():
         criterion_params: parameters to initialize criterion
         nests_per_config: number of nests to do NCV training
         log_level: verbosity - how much to print
+        save: whether to save the last nest models - earlier nests never saved
         """
         self.model_class = model_class
         self.name_base = name_base
@@ -55,6 +58,7 @@ class GridSearchNCV():
         self.criterion_params = criterion_params
         self.nests_per_config = nests_per_config
         self.log_level = log_level
+        self.save = save
 
         # Put dictionary of lists into list of dictionaries form if needed
         if type(param_grid) == dict:
@@ -152,7 +156,6 @@ class GridSearchNCV():
             if self.log_level > 0:
                 print(f'Working on config_{config_n}')
                 if self.log_level > 1:
-                    from pprint import pprint
                     pprint(config_dict)
 
             # If model has normalizaion, remove 'do_norm', will set train_files
@@ -165,10 +168,12 @@ class GridSearchNCV():
             # do_norm = False and do_rev_norm = True
             if 'do_rev_norm' in model_param and model_param['do_rev_norm']:
                 if not do_norm:
-                    self.results[config_name][f'nest_{nest_n}'] = {
-                        'train_loss': [999],
-                        'val_loss': [999]
-                    }
+                    for nest_n in range(1, self.nests_per_config + 1):
+                        self.results[config_name][f'nest_{nest_n}'] = {
+                            'train_loss': [999],
+                            'val_loss': [999]
+                        }
+                    self.results[config_name]['mean_final_val_loss'] = 999
                     continue
 
             original_config_train_frac = train_param['train_frac']
@@ -184,7 +189,7 @@ class GridSearchNCV():
 
                 # Determine training files (train_n) as train.train()
                 if do_norm_in_model and do_norm:
-                    self.model_param['train_files'] = self.files_list[:
+                    model_param['train_files'] = self.files_list[:
                         int(
                             train_param['train_frac']
                             * len(self.files_list)
@@ -209,7 +214,7 @@ class GridSearchNCV():
                     files_list = self.files_list,
                     **train_param,
                     scheduler = scheduler,
-                    save_model = (nest_n == self.nests_per_config)
+                    save_model = nest_n == self.nests_per_config and self.save
                 )
 
                 # Nest results
